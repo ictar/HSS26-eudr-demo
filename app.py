@@ -1,4 +1,5 @@
 import streamlit as st
+import base64
 
 # Page configuration must be the first Streamlit command
 st.set_page_config(
@@ -41,10 +42,67 @@ header { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
+# Helper function to generate real EO satellite map iframes using Leaflet
+def get_eo_map_iframe(height, lat, lon, zoom, map_type="field"):
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <style>
+            body {{ margin: 0; padding: 0; background-color: #0F1E2A; }}
+            #map {{ width: 100%; height: 100vh; }}
+            .leaflet-control-attribution {{ display: none; }}
+        </style>
+    </head>
+    <body>
+        <div id="map"></div>
+        <script>
+            // Initialize map with interaction disabled to act like a dynamic widget inside the UI card
+            var map = L.map('map', {{zoomControl: false, dragging: false, scrollWheelZoom: false}}).setView([{lat}, {lon}], {zoom});
+            
+            // Use real high-res Satellite Imagery Tile Service (Similar to WMS EO data)
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{{z}}/{{y}}/{{x}}', {{
+                maxZoom: 19
+            }}).addTo(map);
+    """
+    
+    if map_type in ["field", "consumer"]:
+        html += f"""
+            var farmArea = [
+                [{lat+0.0015}, {lon-0.002}], 
+                [{lat+0.0025}, {lon+0.001}], 
+                [{lat-0.0005}, {lon+0.002}], 
+                [{lat-0.0015}, {lon-0.001}]
+            ];
+            L.polygon(farmArea, {{color: '#4ade80', weight: 2, fillColor: '#2E9F64', fillOpacity: 0.5}}).addTo(map);
+        """
+    elif map_type == "region":
+        html += f"""
+            var region1 = [[{lat+0.1}, {lon-0.1}], [{lat+0.2}, {lon+0.1}], [{lat}, {lon+0.2}], [{lat-0.1}, {lon}]];
+            var region2 = [[{lat-0.15}, {lon-0.2}], [{lat+0.05}, {lon-0.15}], [{lat}, {lon-0.05}]];
+            L.polygon(region1, {{color: '#4ade80', weight: 2, fillColor: '#2E9F64', fillOpacity: 0.5}}).addTo(map);
+            L.polygon(region2, {{color: '#E79E4F', weight: 2, fillColor: '#E79E4F', fillOpacity: 0.5}}).addTo(map);
+            
+            L.circleMarker([{lat+0.05}, {lon+0.05}], {{color: '#fff', fillColor: '#2E9F64', fillOpacity: 1, radius: 5}}).addTo(map);
+            L.circleMarker([{lat-0.05}, {lon-0.15}], {{color: '#fff', fillColor: '#E79E4F', fillOpacity: 1, radius: 5}}).addTo(map);
+        """
+
+    html += """
+        </script>
+    </body>
+    </html>
+    """
+    b64 = base64.b64encode(html.encode('utf-8')).decode('utf-8')
+    # Use pointer-events: none to avoid map scrolling from stealing page scrolling
+    return f'<iframe src="data:text/html;base64,{b64}" width="100%" height="{height}" style="border:none; border-radius: 8px; pointer-events: none;"></iframe>'
+
+
 # Define render functions for the three pages
 def render_farmer_page():
-    # Completely flattened HTML, removed fake status bar to act as a real app
-    st.markdown("""
+    map_iframe = get_eo_map_iframe('130px', 6.6885, -1.6244, 16, 'field')
+    st.markdown(f"""
 <div class="mobile-container">
 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
 <div>
@@ -58,16 +116,7 @@ def render_farmer_page():
 <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 16px; color: #A0B0C0; font-weight: 600;">
 <span style="color: white;">Field health · satellite</span><span>● Updated 2 days ago</span>
 </div>
-<svg width="100%" height="130" viewBox="0 0 200 100" preserveAspectRatio="none" style="border-radius: 8px;">
-<polygon points="10,50 90,10 90,60 10,90" fill="#4ade80" />
-<polygon points="90,10 190,20 180,80 90,60" fill="#86efac" />
-<polygon points="10,90 90,60 100,95" fill="#fb923c" />
-<polygon points="90,60 180,80 160,95 100,95" fill="#f87171" />
-<text x="40" y="45" font-size="10" fill="#064e3b" font-weight="bold">Zone A</text>
-<text x="130" y="40" font-size="10" fill="#064e3b" font-weight="bold">Zone B</text>
-<text x="40" y="80" font-size="10" fill="#7c2d12" font-weight="bold">Zone C</text>
-<text x="130" y="80" font-size="10" fill="#7f1d1d" font-weight="bold">Zone D</text>
-</svg>
+{map_iframe}
 </div>
 <div class="card" style="box-shadow: 0 4px 15px rgba(46,159,100,0.1); border-radius: 20px; border: none;">
 <div style="font-size: 12px; font-weight: 700; color: #2E9F64; margin-bottom: 12px; letter-spacing: 0.5px;">THIS WEEK'S TIP <span style="color: #999; font-weight: normal;">Zone B</span></div>
@@ -84,8 +133,8 @@ def render_farmer_page():
 """, unsafe_allow_html=True)
 
 def render_retailer_page():
-    # Completely flattened HTML, removed browser top bar to act as a real dashboard
-    st.markdown("""
+    map_iframe = get_eo_map_iframe('200px', 6.6885, -1.6244, 9, 'region')
+    st.markdown(f"""
 <div class="web-container">
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
 <div>
@@ -115,6 +164,13 @@ def render_retailer_page():
 <div style="font-size: 32px; font-weight: 800;">82<span style="font-size: 16px; color: #A0B0C0;">/100</span></div>
 <div style="font-size: 13px; color: #4ade80; font-weight: bold; margin-top: 8px;">▲ improving</div>
 </div>
+</div>
+<div class="card" style="margin-bottom: 20px;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+<div style="font-weight: 700; color: #111C24; font-size: 16px;">Sourcing Regions (EO Live View)</div>
+<div style="font-size: 12px; color: #666;">🛰️ Satellite data synced</div>
+</div>
+{map_iframe}
 </div>
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
 <div class="card">
@@ -149,8 +205,8 @@ def render_retailer_page():
 
 
 def render_consumer_page():
-    # Completely flattened HTML, real mobile responsive view
-    st.markdown("""
+    map_iframe = get_eo_map_iframe('110px', 6.6885, -1.6244, 14, 'consumer')
+    st.markdown(f"""
 <div class="mobile-container">
 <div style="font-size: 13px; color: #888; margin-bottom: 24px; display: flex; align-items: center; gap: 8px;">
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
@@ -170,12 +226,7 @@ Scanned just now
 <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 16px; font-weight: 600;">
 <span style="color: white;">Traced to origin</span><span style="color: #A0B0C0;">Ashanti, Ghana</span>
 </div>
-<svg width="100%" height="110" viewBox="0 0 200 100" preserveAspectRatio="none">
-<polygon points="10,40 80,20 100,70 30,90" fill="#2E9F64" />
-<polygon points="80,20 180,30 160,80 100,70" fill="#1E8F50" />
-<circle cx="50" cy="55" r="4" fill="#E79E4F"/>
-<circle cx="130" cy="50" r="4" fill="#E79E4F"/>
-</svg>
+{map_iframe}
 </div>
 <div style="background-color: #FFF9F0; border-radius: 16px; padding: 20px; display: flex; gap: 16px; align-items: center; margin-bottom: 24px;">
 <div style="background-color: #E79E4F; color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; flex-shrink: 0;">K</div>
