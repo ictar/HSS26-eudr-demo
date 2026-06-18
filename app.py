@@ -139,7 +139,7 @@ def render_retailer_page():
     # Add QR Code linking directly to the Consumer View
     st.markdown("""
 <div style="margin-top: 24px; padding: 24px; background-color: #FFFFFF; border-radius: 12px; border: 1px dashed #ccc; display: flex; align-items: center; gap: 24px; max-width: 600px; margin-left: auto; margin-right: auto;">
-<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=http%3A%2F%2Flocalhost%3A8501%2F%3Fview%3Dconsumer" width="120" height="120" style="border-radius: 8px;">
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https%3A%2F%2Fhss26-eudr-demo.streamlit.app%2F%3Fview%3Dconsumer" width="120" height="120" style="border-radius: 8px;">
 <div>
 <h3 style="margin: 0 0 8px 0; color: #111C24; font-size: 18px;">📲 Test the Consumer Journey</h3>
 <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">Scan this QR code to access the <b>Consumer Proof</b> page directly.<br><i>(Ensure your phone is on the same local network, or change the URL parameter to your deployed domain.)</i></p>
